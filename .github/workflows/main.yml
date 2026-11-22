@@ -1,4 +1,4 @@
-name: Build SimpleVideoExport (FFmpeg 5.1/6.1 + QSV)
+name: Build SimpleVideoExport (FFmpeg 5.1 + QSV)
 
 on:
   workflow_dispatch:
@@ -18,26 +18,19 @@ jobs:
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Setup vcpkg (Commit FFmpeg Compatible)
+      - name: Setup vcpkg (Use newer binary with FFmpeg 5.1 ports)
         shell: cmd
         run: |
           cd /d C:\vcpkg
-          git fetch --unshallow || git fetch
+          git fetch
           git checkout 501db0f17ef6df184fcdbfbe0f87cde2313b6ab1
-          .\bootstrap-vcpkg.bat -disableMetrics
           echo set(VCPKG_BUILD_TYPE release)>> C:\vcpkg\triplets\community\x64-windows-static-md.cmake
           .\vcpkg integrate install
-
-      - name: Download 7z2107-extra.7z from official 7-Zip GitHub
-        shell: cmd
-        run: |
-          if not exist C:\vcpkg\downloads mkdir C:\vcpkg\downloads
-          curl -L -o C:\vcpkg\downloads\7z2107-extra.7z https://github.com
 
       - name: Install dependencies (Release Only + Intel QSV)
         shell: cmd
         run: |
-          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md spdlog asmjit asmtk polyhook2[core,pe,virtuals] ffmpeg[core,avformat,avcodec,swresample,swscale,qsv,zlib]
+          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md spdlog asmjit asmtk polyhook2[core,pe,virtuals] ffmpeg[core,avformat,avcodec,swresample,swscale,qsv]
 
       - name: Build .asi with Ninja
         shell: cmd

@@ -35,7 +35,6 @@ jobs:
           Copy-Item "$($ffDir.FullName)\include" -Destination "deps\include" -Recurse -Force
           Copy-Item "$($ffDir.FullName)\lib" -Destination "deps\lib" -Recurse -Force
           Copy-Item "$($ffDir.FullName)\bin\*.dll" -Destination "deps\bin" -Recurse -Force
-
       - name: Install spdlog via vcpkg (10 Seconds!)
         shell: pwsh
         run: |
@@ -48,77 +47,58 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-
           $root = $env:GITHUB_WORKSPACE
           $deps = Join-Path $root "deps"
           $build = Join-Path $root "polyhook2_src/build"
-
-          New-Item -ItemType Directory -Force "$deps/bin" | Out-Null
-          New-Item -ItemType Directory -Force "$deps/lib" | Out-Null
-          New-Item -ItemType Directory -Force "$deps/include" | Out-Null
-
-          # Configure PolyHook2
+          # Ensure dependency directories exist
+          foreach ($dir in @("bin", "lib", "include")) {
+              $path = Join-Path $deps $dir
+              if (Test-Path $path -PathType Leaf) {
+                  Remove-Item $path -Force
+              }
+              New-Item -ItemType Directory -Force -Path $path | Out-Null
+          }
+          # Configure
           cmake -S "$root/polyhook2_src" -B "$build" -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_INSTALL_PREFIX="$deps" `
             -DPOLYHOOK_BUILD_DLL=OFF `
-            -DBUILD_SHARED_LIBS=OFF `
             -DPOLYHOOK_FEATURE_DETOURS=OFF `
             -DPOLYHOOK_FEATURE_EXCEPTION=OFF `
             -DPOLYHOOK_FEATURE_INLINENTD=OFF `
             -DPOLYHOOK_FEATURE_PE=ON `
             -DPOLYHOOK_FEATURE_VIRTUALS=ON `
             -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL
-
           if ($LASTEXITCODE -ne 0) {
-              throw "PolyHook2 configure failed"
+              throw "PolyHook2 CMake configure failed"
           }
-
           # Build
           cmake --build "$build" --config Release --parallel 4
-
           if ($LASTEXITCODE -ne 0) {
               throw "PolyHook2 build failed"
           }
-
-          # Inspect generated libraries
-          Write-Host "=== Generated LIB files ==="
-
-          Get-ChildItem "$build" -Recurse -Filter "*.lib" |
-            Select-Object FullName, Length
-
+          # Verify directories immediately before installation
+          Write-Host "=== Checking installation directories ==="
+          Get-Item "$deps/bin" | Format-List FullName, Attributes, PSIsContainer
+          Get-Item "$deps/lib" | Format-List FullName, Attributes, PSIsContainer
           # Install
-          cmake --install "$build" --config Release
-
+          cmake --install "$build" --config Release --prefix "$deps"
           if ($LASTEXITCODE -ne 0) {
-              throw "PolyHook2 install failed"
+              throw "PolyHook2 installation failed"
           }
-
-          Write-Host "=== Installed PolyHook2 files ==="
-
-          Get-ChildItem "$deps" -Recurse -File |
-            Where-Object {
-              $_.Name -match "PolyHook"
-            } |
-            Select-Object FullName, Length
-
+          Write-Host "PolyHook2 installed successfully!"
+          Get-ChildItem "$deps/lib"
       - name: Debug PolyHook2 CMake Targets
         shell: pwsh
         run: |
           Write-Host "=== PolyHook2 files ==="
-
           Get-ChildItem "deps/lib/PolyHook_2" -Recurse |
             Select-Object FullName
-
           Write-Host "=== Config file ==="
-
           Get-Content "deps/lib/PolyHook_2/polyhook_2-config.cmake"
-
           Write-Host "=== Target declarations ==="
-
           Get-ChildItem "deps/lib/PolyHook_2" -Filter "*.cmake" |
             Select-String -Pattern "add_library|IMPORTED|include"
-
       - name: Inspect PolyHook2 Imported Target
         shell: pwsh
         run: |
@@ -129,35 +109,27 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-
           New-Item -ItemType Directory -Force -Path "cmake" | Out-Null
-
           @'
           set(FFMPEG_ROOT "${CMAKE_CURRENT_LIST_DIR}/../deps")
-
           find_path(FFMPEG_INCLUDE_DIR
               libavcodec/avcodec.h
               PATHS "${FFMPEG_ROOT}/include"
               NO_DEFAULT_PATH
           )
-
           set(FFMPEG_LIBRARIES "")
-
           foreach(lib avcodec avformat avutil swresample swscale)
               find_library(FFMPEG_${lib}_LIBRARY
                   NAMES ${lib}
                   PATHS "${FFMPEG_ROOT}/lib"
                   NO_DEFAULT_PATH
               )
-
               if(FFMPEG_${lib}_LIBRARY)
                   list(APPEND FFMPEG_LIBRARIES
                       "${FFMPEG_${lib}_LIBRARY}")
               endif()
           endforeach()
-
           include(FindPackageHandleStandardArgs)
-
           find_package_handle_standard_args(FFMPEG
               REQUIRED_VARS
                   FFMPEG_INCLUDE_DIR
@@ -167,9 +139,7 @@ jobs:
                   FFMPEG_swresample_LIBRARY
                   FFMPEG_swscale_LIBRARY
           )
-
           set(FFMPEG_INCLUDE_DIRS "${FFMPEG_INCLUDE_DIR}")
-
           if(FFMPEG_FOUND AND NOT TARGET FFMPEG::FFMPEG)
               add_library(FFMPEG::FFMPEG INTERFACE IMPORTED)
               set_target_properties(FFMPEG::FFMPEG PROPERTIES
@@ -178,19 +148,14 @@ jobs:
               )
           endif()
           '@ | Set-Content "cmake/FindFFMPEG.cmake"
-
           Write-Host "FindFFMPEG.cmake created"
-
       - name: Create FFmpeg CMake Finder
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "cmake" | Out-Null
-
           @'
           set(FFMPEG_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/../deps/include")
-
           set(FFMPEG_LIBRARY_DIRS "${CMAKE_CURRENT_LIST_DIR}/../deps/lib")
-
           set(FFMPEG_LIBRARIES
               avcodec
               avformat
@@ -198,7 +163,6 @@ jobs:
               swresample
               swscale
           )
-
           foreach(lib IN LISTS FFMPEG_LIBRARIES)
               find_library(FFMPEG_${lib}_LIBRARY
                   NAMES ${lib}
@@ -207,43 +171,33 @@ jobs:
                   REQUIRED
               )
           endforeach()
-
           set(FFMPEG_FOUND TRUE)
           '@ | Set-Content -Path "cmake/FindFFMPEG.cmake"
-
       - name: Build .asi with Ninja
         shell: pwsh
         run: |
           if (Test-Path "build") {
               Remove-Item "build" -Recurse -Force
           }
-
           $root = (Get-Location).Path.Replace('\', '/')
-
           New-Item -ItemType Directory -Force "build" | Out-Null
-
           cmake -S "$root" -B "$root/build" -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             "-DCMAKE_PREFIX_PATH=$root/deps" `
             "-DCMAKE_MODULE_PATH=$root/cmake"
-
           if ($LASTEXITCODE -ne 0) {
               exit 1
           }
-
           cmake --build "$root/build" --parallel
-
           if ($LASTEXITCODE -ne 0) {
               exit 1
           }
-
       - name: Generate Standalone VS2022 Project
         shell: cmd
         run: |
           mkdir vs2022_standalone
           cd vs2022_standalone
           cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="%CD%\..\deps" -DFFMPEG_INCLUDE_DIRS="%CD%\..\deps\include" -DFFMPEG_LIBRARY_DIRS="%CD%\..\deps\lib" -DFFMPEG_LIBRARIES="avcodec;avformat;avutil;swresample;swscale" ..
-
       - name: Package Outputs
         shell: cmd
         run: |
@@ -253,7 +207,6 @@ jobs:
           copy deps\bin\*.dll output_asi\
           copy plugin\*.ini output_asi\
           copy test\*.ini output_asi\
-
       - name: Upload Ready-to-Use .asi
         uses: actions/upload-artifact@v4
         with:

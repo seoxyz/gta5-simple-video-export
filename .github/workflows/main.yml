@@ -18,11 +18,18 @@ jobs:
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Configure vcpkg & Pin FFmpeg 5.1 Baseline
+      - name: Configure Custom Triplet (Release Only + CMake 4 Fix) & Manifest
         shell: pwsh
         run: |
-          Add-Content -Path "C:\vcpkg\triplets\community\x64-windows-static-md.cmake" -Value "`nset(VCPKG_BUILD_TYPE release)"
-          C:\vcpkg\vcpkg.exe integrate install
+          New-Item -ItemType Directory -Force -Path "custom-triplets" | Out-Null
+          $triplet = @'
+          set(VCPKG_TARGET_ARCHITECTURE x64)
+          set(VCPKG_CRT_LINKAGE dynamic)
+          set(VCPKG_LIBRARY_LINKAGE static)
+          set(VCPKG_BUILD_TYPE release)
+          set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+          '@
+          Set-Content -Path "custom-triplets\x64-windows-static-md.cmake" -Value $triplet
 
           $manifest = @'
           {
@@ -48,17 +55,25 @@ jobs:
           '@
           Set-Content -Path "vcpkg.json" -Value $manifest
 
-      - name: Install dependencies (FFmpeg 5.1.2 + Intel QSV)
+      - name: Cache vcpkg dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\vcpkg\installed
+            C:\Users\runneradmin\AppData\Local\vcpkg\archives
+          key: vcpkg-ffmpeg51-qsv-${{ hashFiles('vcpkg.json', 'custom-triplets/x64-windows-static-md.cmake') }}
+
+      - name: Install dependencies (Release Only + FFmpeg 5.1.2 + QSV)
         shell: cmd
         run: |
-          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md --x-install-root=C:\vcpkg\installed
+          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md --overlay-triplets=custom-triplets --x-install-root=C:\vcpkg\installed
 
       - name: Build .asi with Ninja
         shell: cmd
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=RELEASE -G Ninja -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md -DVCPKG_MANIFEST_MODE=OFF ..
+          cmake -DCMAKE_BUILD_TYPE=RELEASE -G Ninja -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md -DVCPKG_OVERLAY_TRIPLETS="%CD%\..\custom-triplets" -DVCPKG_MANIFEST_MODE=OFF ..
           ninja
 
       - name: Generate Standalone VS2022 Project

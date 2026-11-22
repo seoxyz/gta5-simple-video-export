@@ -36,12 +36,12 @@ jobs:
               {
                 "name": "polyhook2",
                 "default-features": false,
-                "features": ["core", "pe", "virtuals"]
+                "features": ["pe", "virtuals"]
               },
               {
                 "name": "ffmpeg",
                 "default-features": false,
-                "features": ["core", "avformat", "avcodec", "swresample", "swscale", "qsv", "zlib"]
+                "features": ["avformat", "avcodec", "swresample", "swscale", "qsv"]
               }
             ]
           }

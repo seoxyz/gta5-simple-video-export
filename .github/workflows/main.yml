@@ -173,7 +173,7 @@ jobs:
         run: |
           mkdir vs2022_standalone
           cd vs2022_standalone
-          cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="%CD%\..\deps" -DFFMPEG_INCLUDE_DIRS="%CD%\..\deps\include" -DFFMPEG_LIBRARY_DIRS="%CD%\..\deps\lib" -DFFMPEG_LIBRARIES="avcodec;avformat;avutil;swresample;swscale" ..
+          cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="%CD%\..\deps" -DCMAKE_MODULE_PATH="%CD%\..\cmake" ..
       - name: Package Outputs
         shell: cmd
         run: |
@@ -194,7 +194,9 @@ jobs:
         with:
           name: 2-Project-VS2022-QSV
           path: |
+            cmake/
             common/
+            inipp/
             plugin/
             test/
             deps/

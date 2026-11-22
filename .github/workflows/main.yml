@@ -119,6 +119,12 @@ jobs:
 
           Get-ChildItem "deps/lib/PolyHook_2" -Filter "*.cmake" |
             Select-String -Pattern "add_library|IMPORTED|include"
+
+      - name: Inspect PolyHook2 Imported Target
+        shell: pwsh
+        run: |
+          Get-Content "deps/lib/PolyHook_2/PolyHook_2-targets.cmake" |
+            Select-String -Pattern "add_library|IMPORTED"
       
       - name: Create FindFFMPEG Module
         shell: pwsh

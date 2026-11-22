@@ -1,4 +1,4 @@
-name: Build SimpleVideoExport & Bundle SDK
+name: Build SimpleVideoExport (FFmpeg 6.1 + QSV)
 
 on:
   workflow_dispatch:
@@ -18,15 +18,17 @@ jobs:
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Setup vcpkg
+      - name: Setup vcpkg (Commit FFmpeg 6.1)
         shell: cmd
         run: |
           cd /d C:\vcpkg
+          git fetch --unshallow || git fetch
+          git checkout 501db0f17ef6df184fcdbfbe0f87cde2313b6ab1
           .\bootstrap-vcpkg.bat -disableMetrics
           echo set(VCPKG_BUILD_TYPE release)>> C:\vcpkg\triplets\community\x64-windows-static-md.cmake
           .\vcpkg integrate install
 
-      - name: Install dependencies
+      - name: Install dependencies (Release Only + Intel QSV)
         shell: cmd
         run: |
           C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md spdlog asmjit asmtk polyhook2[core,pe,virtuals] ffmpeg[core,avformat,avcodec,swresample,swscale,qsv,zlib]
@@ -39,7 +41,7 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=RELEASE -G Ninja -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md ..
           ninja
 
-      - name: Generate Standalone VS2022 Project (No vcpkg needed locally)
+      - name: Generate Standalone VS2022 Project
         shell: cmd
         run: |
           mkdir vs2022_standalone\deps
@@ -59,13 +61,13 @@ jobs:
       - name: Upload Ready-to-Use .asi
         uses: actions/upload-artifact@v4
         with:
-          name: 1-SimpleVideoExport-ASI-SiapPakai
+          name: 1-SimpleVideoExport-QSV-ASI
           path: output_asi/
 
       - name: Upload Standalone VS2022 Project
         uses: actions/upload-artifact@v4
         with:
-          name: 2-Project-VS2022-Tanpa-vcpkg
+          name: 2-Project-VS2022-QSV
           path: |
             common/
             plugin/

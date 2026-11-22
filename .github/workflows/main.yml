@@ -159,6 +159,36 @@ jobs:
 
           Write-Host "FindFFMPEG.cmake created"
 
+      - name: Create FFmpeg CMake Finder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "cmake" | Out-Null
+
+          @'
+          set(FFMPEG_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/../deps/include")
+
+          set(FFMPEG_LIBRARY_DIRS "${CMAKE_CURRENT_LIST_DIR}/../deps/lib")
+
+          set(FFMPEG_LIBRARIES
+              avcodec
+              avformat
+              avutil
+              swresample
+              swscale
+          )
+
+          foreach(lib IN LISTS FFMPEG_LIBRARIES)
+              find_library(FFMPEG_${lib}_LIBRARY
+                  NAMES ${lib}
+                  PATHS "${FFMPEG_LIBRARY_DIRS}"
+                  NO_DEFAULT_PATH
+                  REQUIRED
+              )
+          endforeach()
+
+          set(FFMPEG_FOUND TRUE)
+          '@ | Set-Content -Path "cmake/FindFFMPEG.cmake"
+
       - name: Build .asi with Ninja
         shell: cmd
         run: |
@@ -169,9 +199,7 @@ jobs:
           cmake -G Ninja ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_PREFIX_PATH="%GITHUB_WORKSPACE%/deps" ^
-            -DFFMPEG_INCLUDE_DIRS="%GITHUB_WORKSPACE%/deps/include" ^
-            -DFFMPEG_LIBRARY_DIRS="%GITHUB_WORKSPACE%/deps/lib" ^
-            -DFFMPEG_LIBRARIES="avcodec;avformat;avutil;swresample;swscale" ^
+            -DCMAKE_MODULE_PATH="%GITHUB_WORKSPACE%/cmake" ^
             ..
 
           if errorlevel 1 exit /b 1

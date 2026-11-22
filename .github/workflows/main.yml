@@ -81,6 +81,18 @@ jobs:
               throw "PolyHook2 installation failed"
           }
           
+          # Cari .lib PolyHook2 di folder build jika belum ter-install ke deps/lib
+          $ph2Libs = Get-ChildItem -Path "$build" -Recurse -Filter "*.lib" | Where-Object {
+            $_.Name -notmatch "Zydis|Zycore|gtest|gmock"
+          }
+          foreach ($lib in $ph2Libs) {
+            $dest = Join-Path "$deps/lib" $lib.Name
+            if (-not (Test-Path $dest)) {
+              Copy-Item -Path $lib.FullName -Destination $dest -Force
+              Write-Host "Copied $($lib.FullName) -> $dest"
+            }
+          }
+          
       - name: Debug PolyHook2 CMake Targets
         shell: pwsh
         run: |

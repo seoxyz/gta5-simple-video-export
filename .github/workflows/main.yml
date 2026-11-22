@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         shell: cmd
         run: |
-          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md spdlog asmjit asmtk polyhook2[core,pe,virtuals] ffmpeg[core,avformat,avcodec,swresample,swscale,mp3lame,opencl,openjpeg,opus,snappy,soxr,speex,theora,vorbis,vpx,webp,zlib]
+          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md spdlog asmjit asmtk polyhook2[core,pe,virtuals] ffmpeg[core,avformat,avcodec,swresample,swscale,qsv,zlib]
 
       - name: Build .asi with Ninja
         shell: cmd

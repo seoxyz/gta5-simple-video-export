@@ -1,6 +1,18 @@
 find_package(spdlog CONFIG REQUIRED)
 find_package(PolyHook_2 CONFIG REQUIRED)
 
+if(TARGET PolyHook_2::PolyHook_2)
+    message(STATUS "PolyHook target: PolyHook_2::PolyHook_2")
+elseif(TARGET PolyHook_2)
+    message(STATUS "PolyHook target: PolyHook_2")
+elseif(TARGET PolyHook_2::PolyHook_2_static)
+    message(STATUS "PolyHook target: PolyHook_2::PolyHook_2_static")
+else()
+    message(STATUS "PolyHook targets not found. Available targets:")
+    get_property(allTargets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    message(STATUS "${allTargets}")
+endif()
+
 add_library(common STATIC
     audiostream.cpp
     avcreate.cpp

@@ -1,4 +1,4 @@
-name: Build SimpleVideoExport (FFmpeg 6.1 + QSV)
+name: Build SimpleVideoExport (FFmpeg 5.1/6.1 + QSV)
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ jobs:
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Setup vcpkg (Commit FFmpeg 6.1)
+      - name: Setup vcpkg (Commit FFmpeg Compatible)
         shell: cmd
         run: |
           cd /d C:\vcpkg
@@ -28,12 +28,11 @@ jobs:
           echo set(VCPKG_BUILD_TYPE release)>> C:\vcpkg\triplets\community\x64-windows-static-md.cmake
           .\vcpkg integrate install
 
-      - name: Provide 7-Zip for vcpkg (Fix 404 Download Error)
+      - name: Download 7z2107-extra.7z from official 7-Zip GitHub
         shell: cmd
         run: |
-          mkdir C:\vcpkg\downloads\tools\7zip-21.07-windows
-          copy "C:\Program Files\7-Zip\7z.exe" C:\vcpkg\downloads\tools\7zip-21.07-windows\7z.exe
-          copy "C:\Program Files\7-Zip\7z.dll" C:\vcpkg\downloads\tools\7zip-21.07-windows\7z.dll
+          if not exist C:\vcpkg\downloads mkdir C:\vcpkg\downloads
+          curl -L -o C:\vcpkg\downloads\7z2107-extra.7z https://github.com
 
       - name: Install dependencies (Release Only + Intel QSV)
         shell: cmd

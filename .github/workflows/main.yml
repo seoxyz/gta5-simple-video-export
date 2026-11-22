@@ -1,4 +1,4 @@
-name: Build SimpleVideoExport (FFmpeg 5.1 + QSV)
+name: Build SimpleVideoExport (Fast Prebuilt FFmpeg 5.1)
 
 on:
   workflow_dispatch:
@@ -15,60 +15,41 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Checkout PolyHook2 repository
+        uses: actions/checkout@v4
+        with:
+          repository: stevemk14ebr/PolyHook_2_0
+          submodules: recursive
+          path: polyhook2_src
+
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Configure Custom Triplet & Manifest (Without PolyHook2)
+      - name: Download Prebuilt FFmpeg 5.1.2 (3 Seconds!)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "deps" | Out-Null
+          Invoke-WebRequest -Uri "https://github.com" -OutFile "ffmpeg.zip"
+          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_tmp"
+          $ffDir = Get-ChildItem "ffmpeg_tmp" | Select-Object -First 1
+          Copy-Item "$($ffDir.FullName)\include" -Destination "deps\include" -Recurse -Force
+          Copy-Item "$($ffDir.FullName)\lib" -Destination "deps\lib" -Recurse -Force
+          Copy-Item "$($ffDir.FullName)\bin\*.dll" -Destination "deps\bin" -Recurse -Force
+
+      - name: Install spdlog via vcpkg (10 Seconds!)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "custom-triplets" | Out-Null
-          $triplet = @'
-          set(VCPKG_TARGET_ARCHITECTURE x64)
-          set(VCPKG_CRT_LINKAGE dynamic)
-          set(VCPKG_LIBRARY_LINKAGE static)
-          set(VCPKG_BUILD_TYPE release)
-          '@
-          Set-Content -Path "custom-triplets\x64-windows-static-md.cmake" -Value $triplet
+          Set-Content -Path "custom-triplets\x64-windows-static-md.cmake" -Value "set(VCPKG_TARGET_ARCHITECTURE x64)`nset(VCPKG_CRT_LINKAGE dynamic)`nset(VCPKG_LIBRARY_LINKAGE static)`nset(VCPKG_BUILD_TYPE release)"
+          C:\vcpkg\vcpkg.exe install spdlog:x64-windows-static-md --overlay-triplets=custom-triplets --x-install-root=vcpkg_spdlog
+          Copy-Item "vcpkg_spdlog\x64-windows-static-md\*" -Destination "deps" -Recurse -Force
 
-          $manifest = @'
-          {
-            "name": "simple-video-export",
-            "version": "1.0.0",
-            "builtin-baseline": "501db0f17ef6df184fcdbfbe0f87cde2313b6ab1",
-            "dependencies": [
-              "spdlog",
-              "asmjit",
-              "asmtk",
-              {
-                "name": "ffmpeg",
-                "default-features": false,
-                "features": ["avformat", "avcodec", "swresample", "swscale", "qsv", "zlib"]
-              }
-            ]
-          }
-          '@
-          Set-Content -Path "vcpkg.json" -Value $manifest
-
-      - name: Cache vcpkg dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            C:\vcpkg\installed
-            C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: vcpkg-ffmpeg51-qsv-nopoly-${{ hashFiles('vcpkg.json', 'custom-triplets/x64-windows-static-md.cmake') }}
-
-      - name: Install FFmpeg 5.1.2 + QSV + spdlog
+      - name: Build & Install PolyHook2
         shell: cmd
         run: |
-          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md --overlay-triplets=custom-triplets --x-install-root=C:\vcpkg\installed
-
-      - name: Install PolyHook2 Directly via Git (CMake 3.5 Policy Fix)
-        shell: cmd
-        run: |
-          git clone --depth 1 https://github.com/stevemk14ebr/PolyHook_2_0.git C:\polyhook2_src
-          mkdir C:\polyhook2_src\build
-          cd C:\polyhook2_src\build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX=C:/vcpkg/installed/x64-windows-static-md -DPOLYHOOK_BUILD_DLL=OFF -DPOLYHOOK_FEATURE_DETOURS=OFF -DPOLYHOOK_FEATURE_EXCEPTION=OFF -DPOLYHOOK_FEATURE_INLINENTD=OFF -DPOLYHOOK_FEATURE_PE=ON -DPOLYHOOK_FEATURE_VIRTUALS=ON -DPOLYHOOK_USE_EXTERNAL_ASMTK=ON -DCMAKE_PREFIX_PATH=C:/vcpkg/installed/x64-windows-static-md -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreadedDLL"
+          mkdir polyhook2_src\build
+          cd polyhook2_src\build
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="%CD%\..\..\deps" -DPOLYHOOK_BUILD_DLL=OFF -DPOLYHOOK_FEATURE_DETOURS=OFF -DPOLYHOOK_FEATURE_EXCEPTION=OFF -DPOLYHOOK_FEATURE_INLINENTD=OFF -DPOLYHOOK_FEATURE_PE=ON -DPOLYHOOK_FEATURE_VIRTUALS=ON -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreadedDLL"
           ninja install
 
       - name: Build .asi with Ninja
@@ -76,16 +57,15 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=RELEASE -G Ninja -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md -DVCPKG_OVERLAY_TRIPLETS="%CD%\..\custom-triplets" -DVCPKG_MANIFEST_MODE=OFF ..
+          cmake -DCMAKE_BUILD_TYPE=RELEASE -G Ninja -DCMAKE_PREFIX_PATH="%CD%\..\deps" -DFFMPEG_INCLUDE_DIRS="%CD%\..\deps\include" -DFFMPEG_LIBRARY_DIRS="%CD%\..\deps\lib" -DFFMPEG_LIBRARIES="avcodec;avformat;avutil;swresample;swscale" ..
           ninja
 
       - name: Generate Standalone VS2022 Project
         shell: cmd
         run: |
-          mkdir vs2022_standalone\deps
-          xcopy /E /I /Y C:\vcpkg\installed\x64-windows-static-md vs2022_standalone\deps
+          mkdir vs2022_standalone
           cd vs2022_standalone
-          cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="%CD%\deps" ..
+          cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="%CD%\..\deps" -DFFMPEG_INCLUDE_DIRS="%CD%\..\deps\include" -DFFMPEG_LIBRARY_DIRS="%CD%\..\deps\lib" -DFFMPEG_LIBRARIES="avcodec;avformat;avutil;swresample;swscale" ..
 
       - name: Package Outputs
         shell: cmd
@@ -93,6 +73,7 @@ jobs:
           mkdir output_asi
           copy build\*.asi output_asi\
           copy build\*.exe output_asi\
+          copy deps\bin\*.dll output_asi\
           copy plugin\*.ini output_asi\
           copy test\*.ini output_asi\
 
@@ -110,5 +91,6 @@ jobs:
             common/
             plugin/
             test/
+            deps/
             CMakeLists.txt
             vs2022_standalone/

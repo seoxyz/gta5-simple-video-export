@@ -25,16 +25,34 @@ jobs:
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Download Prebuilt FFmpeg 5.1.2 (3 Seconds!)
+      
+      - name: Download Prebuilt FFmpeg 5.1.2
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+
           New-Item -ItemType Directory -Force -Path "deps" | Out-Null
-          Invoke-WebRequest -Uri "https://github.com" -OutFile "ffmpeg.zip"
-          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_tmp"
-          $ffDir = Get-ChildItem "ffmpeg_tmp" | Select-Object -First 1
-          Copy-Item "$($ffDir.FullName)\include" -Destination "deps\include" -Recurse -Force
-          Copy-Item "$($ffDir.FullName)\lib" -Destination "deps\lib" -Recurse -Force
-          Copy-Item "$($ffDir.FullName)\bin\*.dll" -Destination "deps\bin" -Recurse -Force
+
+          $url = "https://ffmpeg.org/releases/ffmpeg-5.1.2.tar.xz"
+
+          Invoke-WebRequest -Uri $url -OutFile "ffmpeg.zip"
+
+          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_tmp" -Force
+
+          $ffDir = Get-ChildItem "ffmpeg_tmp" -Directory | Select-Object -First 1
+
+          if (-not $ffDir) {
+              throw "FFmpeg archive extraction failed"
+          }
+
+          New-Item -ItemType Directory -Force -Path "deps/include", "deps/lib", "deps/bin" | Out-Null
+
+          Copy-Item "$($ffDir.FullName)/include/*" "deps/include/" -Recurse -Force
+          Copy-Item "$($ffDir.FullName)/lib/*" "deps/lib/" -Recurse -Force
+          Copy-Item "$($ffDir.FullName)/bin/*.dll" "deps/bin/" -Force
+
+          Write-Host "FFmpeg installation completed"
+          Get-ChildItem deps/lib
 
       - name: Install spdlog via vcpkg (10 Seconds!)
         shell: pwsh

@@ -80,6 +80,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
               throw "PolyHook2 installation failed"
           }
+
+          # Kumpulkan semua .obj dari folder sources PolyHook2 (bukan MainTests / unit tests)
+          # lalu gabungkan menjadi static library PolyHook_2.lib menggunakan lib.exe
+          $ph2Objs = Get-ChildItem -Path "$build/CMakeFiles/PolyHook_2.dir/sources" -Recurse -Filter "*.obj" |
+              Select-Object -ExpandProperty FullName
+
+          if ($ph2Objs.Count -eq 0) {
+              throw "Tidak ada file .obj PolyHook2 yang ditemukan di $build/CMakeFiles/PolyHook_2.dir/sources"
+          }
+
+          & lib.exe /NOLOGO /OUT:"$deps/lib/PolyHook_2.lib" $ph2Objs
+          if ($LASTEXITCODE -ne 0) {
+              throw "Gagal membuat static library PolyHook_2.lib dari .obj"
+          }
+          Write-Host "Berhasil membuat static library PolyHook_2.lib dari $($ph2Objs.Count) file .obj"
           
           # Cari .lib PolyHook2 di folder build jika belum ter-install ke deps/lib
           $ph2Libs = Get-ChildItem -Path "$build" -Recurse -Filter "*.lib" | Where-Object {

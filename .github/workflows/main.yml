@@ -102,6 +102,23 @@ jobs:
 
           Write-Host "PolyHook2 installed successfully!"
           Get-ChildItem "$deps/lib"
+
+      - name: Debug PolyHook2 CMake Targets
+        shell: pwsh
+        run: |
+          Write-Host "=== PolyHook2 files ==="
+
+          Get-ChildItem "deps/lib/PolyHook_2" -Recurse |
+            Select-Object FullName
+
+          Write-Host "=== Config file ==="
+
+          Get-Content "deps/lib/PolyHook_2/polyhook_2-config.cmake"
+
+          Write-Host "=== Target declarations ==="
+
+          Get-ChildItem "deps/lib/PolyHook_2" -Filter "*.cmake" |
+            Select-String -Pattern "add_library|IMPORTED|include"
       
       - name: Create FindFFMPEG Module
         shell: pwsh

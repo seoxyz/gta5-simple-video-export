@@ -50,7 +50,6 @@ jobs:
           $root = $env:GITHUB_WORKSPACE
           $deps = Join-Path $root "deps"
           $build = Join-Path $root "polyhook2_src/build"
-          # Ensure dependency directories exist
           foreach ($dir in @("bin", "lib", "include")) {
               $path = Join-Path $deps $dir
               if (Test-Path $path -PathType Leaf) {
@@ -58,11 +57,12 @@ jobs:
               }
               New-Item -ItemType Directory -Force -Path $path | Out-Null
           }
-          # Configure
           cmake -S "$root/polyhook2_src" -B "$build" -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_INSTALL_PREFIX="$deps" `
+            -DBUILD_SHARED_LIBS=OFF `
             -DPOLYHOOK_BUILD_DLL=OFF `
+            -DPOLYHOOK_BUILD_STATIC_RUNTIME=OFF `
             -DPOLYHOOK_FEATURE_DETOURS=OFF `
             -DPOLYHOOK_FEATURE_EXCEPTION=OFF `
             -DPOLYHOOK_FEATURE_INLINENTD=OFF `
@@ -72,22 +72,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
               throw "PolyHook2 CMake configure failed"
           }
-          # Build
           cmake --build "$build" --config Release --parallel 4
           if ($LASTEXITCODE -ne 0) {
               throw "PolyHook2 build failed"
           }
-          # Verify directories immediately before installation
-          Write-Host "=== Checking installation directories ==="
-          Get-Item "$deps/bin" | Format-List FullName, Attributes, PSIsContainer
-          Get-Item "$deps/lib" | Format-List FullName, Attributes, PSIsContainer
-          # Install
           cmake --install "$build" --config Release --prefix "$deps"
           if ($LASTEXITCODE -ne 0) {
               throw "PolyHook2 installation failed"
           }
-          Write-Host "PolyHook2 installed successfully!"
-          Get-ChildItem "$deps/lib"
+          
       - name: Debug PolyHook2 CMake Targets
         shell: pwsh
         run: |

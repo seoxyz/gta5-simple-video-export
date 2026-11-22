@@ -37,6 +37,6 @@ target_link_libraries(common PUBLIC
     avutil
     swresample
     swscale
-    PolyHook_2::PolyHook_2
+    PolyHook_2
     spdlog::spdlog
 )

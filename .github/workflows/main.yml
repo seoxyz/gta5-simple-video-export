@@ -162,16 +162,23 @@ jobs:
       - name: Build .asi with Ninja
         shell: cmd
         run: |
+          if exist build rmdir /s /q build
           mkdir build
           cd build
-          cmake .. -G Ninja ^
-          -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_PREFIX_PATH="%CD%\..\deps" ^
-          -DCMAKE_MODULE_PATH="%CD%\..\cmake" ^
-          -DFFMPEG_INCLUDE_DIRS="%CD%\..\deps\include" ^
-          -DFFMPEG_LIBRARY_DIRS="%CD%\..\deps\lib" ^
-          -DFFMPEG_LIBRARIES="avcodec;avformat;avutil;swresample;swscale"
+
+          cmake -G Ninja ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_PREFIX_PATH="%GITHUB_WORKSPACE%/deps" ^
+            -DFFMPEG_INCLUDE_DIRS="%GITHUB_WORKSPACE%/deps/include" ^
+            -DFFMPEG_LIBRARY_DIRS="%GITHUB_WORKSPACE%/deps/lib" ^
+            -DFFMPEG_LIBRARIES="avcodec;avformat;avutil;swresample;swscale" ^
+            ..
+
+          if errorlevel 1 exit /b 1
+
           ninja
+
+          if errorlevel 1 exit /b 1
 
       - name: Generate Standalone VS2022 Project
         shell: cmd

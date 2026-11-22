@@ -28,6 +28,13 @@ jobs:
           echo set(VCPKG_BUILD_TYPE release)>> C:\vcpkg\triplets\community\x64-windows-static-md.cmake
           .\vcpkg integrate install
 
+      - name: Provide 7-Zip for vcpkg (Fix 404 Download Error)
+        shell: cmd
+        run: |
+          mkdir C:\vcpkg\downloads\tools\7zip-21.07-windows
+          copy "C:\Program Files\7-Zip\7z.exe" C:\vcpkg\downloads\tools\7zip-21.07-windows\7z.exe
+          copy "C:\Program Files\7-Zip\7z.dll" C:\vcpkg\downloads\tools\7zip-21.07-windows\7z.dll
+
       - name: Install dependencies (Release Only + Intel QSV)
         shell: cmd
         run: |

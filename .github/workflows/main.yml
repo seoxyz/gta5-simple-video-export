@@ -42,7 +42,7 @@ jobs:
               {
                 "name": "ffmpeg",
                 "default-features": false,
-                "features": ["avformat", "avcodec", "swresample", "swscale", "qsv"]
+                "features": ["avformat", "avcodec", "swresample", "swscale", "qsv", "zlib"]
               }
             ]
           }

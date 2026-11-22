@@ -1,4 +1,4 @@
-name: Build SimpleVideoExport
+name: Build SimpleVideoExport & Bundle SDK
 
 on:
   workflow_dispatch:
@@ -19,35 +19,58 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Setup vcpkg at specific commit
+        shell: cmd
         run: |
-          git clone https://github.com C:\vcpkg
-          cd C:\vcpkg
+          cd /d C:\vcpkg
+          git fetch --unshallow || git fetch
           git checkout 095ee8757ec933b22d445738d2dbb1ce89bb8021
           .\bootstrap-vcpkg.bat -disableMetrics
           echo set(VCPKG_BUILD_TYPE release)>> C:\vcpkg\triplets\community\x64-windows-static-md.cmake
           .\vcpkg integrate install
 
       - name: Install dependencies
+        shell: cmd
         run: |
-          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md spdlog asmjit asmtk "polyhook2[core,pe,virtuals]" "ffmpeg[core,avformat,avcodec,swresample,swscale,nvcodec,mp3lame,opencl,openjpeg,opus,snappy,soxr,speex,theora,vorbis,vpx,webp,zlib]"
+          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md spdlog asmjit asmtk polyhook2[core,pe,virtuals] ffmpeg[core,avformat,avcodec,swresample,swscale,nvcodec,mp3lame,opencl,openjpeg,opus,snappy,soxr,speex,theora,vorbis,vpx,webp,zlib]
 
-      - name: Configure and Build
+      - name: Build .asi with Ninja
+        shell: cmd
         run: |
           mkdir build
           cd build
           cmake -DCMAKE_BUILD_TYPE=RELEASE -G Ninja -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md ..
           ninja
 
-      - name: Prepare Output Files
+      - name: Generate Standalone VS2022 Project (No vcpkg needed locally)
+        shell: cmd
         run: |
-          mkdir output
-          copy build\*.asi output\
-          copy build\*.exe output\
-          copy plugin\*.ini output\
-          copy test\*.ini output\
+          mkdir vs2022_standalone\deps
+          xcopy /E /I /Y C:\vcpkg\installed\x64-windows-static-md vs2022_standalone\deps
+          cd vs2022_standalone
+          cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="%CD%\deps" ..
 
-      - name: Upload Artifacts
+      - name: Package Outputs
+        shell: cmd
+        run: |
+          mkdir output_asi
+          copy build\*.asi output_asi\
+          copy build\*.exe output_asi\
+          copy plugin\*.ini output_asi\
+          copy test\*.ini output_asi\
+
+      - name: Upload Ready-to-Use .asi
         uses: actions/upload-artifact@v4
         with:
-          name: SimpleVideoExport-Build
-          path: output/
+          name: 1-SimpleVideoExport-ASI-SiapPakai
+          path: output_asi/
+
+      - name: Upload Standalone VS2022 Project
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2-Project-VS2022-Tanpa-vcpkg
+          path: |
+            common/
+            plugin/
+            test/
+            CMakeLists.txt
+            vs2022_standalone/

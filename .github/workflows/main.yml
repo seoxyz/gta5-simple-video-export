@@ -18,12 +18,10 @@ jobs:
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Setup vcpkg at specific commit
+      - name: Setup vcpkg
         shell: cmd
         run: |
           cd /d C:\vcpkg
-          git fetch --unshallow || git fetch
-          git checkout 095ee8757ec933b22d445738d2dbb1ce89bb8021
           .\bootstrap-vcpkg.bat -disableMetrics
           echo set(VCPKG_BUILD_TYPE release)>> C:\vcpkg\triplets\community\x64-windows-static-md.cmake
           .\vcpkg integrate install
@@ -31,7 +29,7 @@ jobs:
       - name: Install dependencies
         shell: cmd
         run: |
-          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md spdlog asmjit asmtk polyhook2[core,pe,virtuals] ffmpeg[core,avformat,avcodec,swresample,swscale,nvcodec,mp3lame,opencl,openjpeg,opus,snappy,soxr,speex,theora,vorbis,vpx,webp,zlib]
+          C:\vcpkg\vcpkg.exe install --triplet x64-windows-static-md spdlog asmjit asmtk polyhook2[core,pe,virtuals] ffmpeg[core,avformat,avcodec,swresample,swscale,mp3lame,opencl,openjpeg,opus,snappy,soxr,speex,theora,vorbis,vpx,webp,zlib]
 
       - name: Build .asi with Ninja
         shell: cmd

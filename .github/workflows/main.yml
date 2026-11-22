@@ -1,4 +1,4 @@
-name: Build SimpleVideoExport (Fast Prebuilt FFmpeg 5.1)
+name: Build SimpleVideoExport
 
 on:
   workflow_dispatch:
@@ -35,7 +35,7 @@ jobs:
           Copy-Item "$($ffDir.FullName)\include" -Destination "deps\include" -Recurse -Force
           Copy-Item "$($ffDir.FullName)\lib" -Destination "deps\lib" -Recurse -Force
           Copy-Item "$($ffDir.FullName)\bin\*.dll" -Destination "deps\bin" -Recurse -Force
-      - name: Install spdlog via vcpkg (10 Seconds!)
+      - name: Install spdlog via vcpkg
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "custom-triplets" | Out-Null

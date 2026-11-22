@@ -190,23 +190,30 @@ jobs:
           '@ | Set-Content -Path "cmake/FindFFMPEG.cmake"
 
       - name: Build .asi with Ninja
-        shell: cmd
+        shell: pwsh
         run: |
-          if exist build rmdir /s /q build
-          mkdir build
-          cd build
+          if (Test-Path "build") {
+              Remove-Item "build" -Recurse -Force
+          }
 
-          cmake -G Ninja ^
-            -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_PREFIX_PATH="%GITHUB_WORKSPACE%/deps" ^
-            -DCMAKE_MODULE_PATH="%GITHUB_WORKSPACE%/cmake" ^
-            ..
+          $root = (Get-Location).Path.Replace('\', '/')
 
-          if errorlevel 1 exit /b 1
+          New-Item -ItemType Directory -Force "build" | Out-Null
 
-          ninja
+          cmake -S "$root" -B "$root/build" -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            "-DCMAKE_PREFIX_PATH=$root/deps" `
+            "-DCMAKE_MODULE_PATH=$root/cmake"
 
-          if errorlevel 1 exit /b 1
+          if ($LASTEXITCODE -ne 0) {
+              exit 1
+          }
+
+          cmake --build "$root/build" --parallel
+
+          if ($LASTEXITCODE -ne 0) {
+              exit 1
+          }
 
       - name: Generate Standalone VS2022 Project
         shell: cmd

@@ -44,13 +44,38 @@ jobs:
           C:\vcpkg\vcpkg.exe install spdlog:x64-windows-static-md --overlay-triplets=custom-triplets --x-install-root=vcpkg_spdlog
           Copy-Item "vcpkg_spdlog\x64-windows-static-md\*" -Destination "deps" -Recurse -Force
 
+      
       - name: Build & Install PolyHook2
         shell: cmd
         run: |
+          if not exist deps\bin mkdir deps\bin
+          if not exist deps\lib mkdir deps\lib
+          if not exist deps\include mkdir deps\include
+
           mkdir polyhook2_src\build
           cd polyhook2_src\build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="%CD%\..\..\deps" -DPOLYHOOK_BUILD_DLL=OFF -DPOLYHOOK_FEATURE_DETOURS=OFF -DPOLYHOOK_FEATURE_EXCEPTION=OFF -DPOLYHOOK_FEATURE_INLINENTD=OFF -DPOLYHOOK_FEATURE_PE=ON -DPOLYHOOK_FEATURE_VIRTUALS=ON -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreadedDLL"
+
+          cmake .. -G Ninja ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
+            -DCMAKE_INSTALL_PREFIX="%CD%\..\..\deps" ^
+            -DPOLYHOOK_BUILD_DLL=OFF ^
+            -DPOLYHOOK_FEATURE_DETOURS=OFF ^
+            -DPOLYHOOK_FEATURE_EXCEPTION=OFF ^
+            -DPOLYHOOK_FEATURE_INLINENTD=OFF ^
+            -DPOLYHOOK_FEATURE_PE=ON ^
+            -DPOLYHOOK_FEATURE_VIRTUALS=ON ^
+            -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreadedDLL"
+
+          if errorlevel 1 exit /b 1
+
+          ninja
+
+          if errorlevel 1 exit /b 1
+
           ninja install
+
+          if errorlevel 1 exit /b 1
 
       - name: Build .asi with Ninja
         shell: cmd

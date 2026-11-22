@@ -53,22 +53,16 @@ jobs:
           $deps = Join-Path $root "deps"
           $build = Join-Path $root "polyhook2_src/build"
 
-          # Ensure dependency directories exist
-          foreach ($dir in @("bin", "lib", "include")) {
-              $path = Join-Path $deps $dir
+          New-Item -ItemType Directory -Force "$deps/bin" | Out-Null
+          New-Item -ItemType Directory -Force "$deps/lib" | Out-Null
+          New-Item -ItemType Directory -Force "$deps/include" | Out-Null
 
-              if (Test-Path $path -PathType Leaf) {
-                  Remove-Item $path -Force
-              }
-
-              New-Item -ItemType Directory -Force -Path $path | Out-Null
-          }
-
-          # Configure
+          # Configure PolyHook2
           cmake -S "$root/polyhook2_src" -B "$build" -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_INSTALL_PREFIX="$deps" `
             -DPOLYHOOK_BUILD_DLL=OFF `
+            -DBUILD_SHARED_LIBS=OFF `
             -DPOLYHOOK_FEATURE_DETOURS=OFF `
             -DPOLYHOOK_FEATURE_EXCEPTION=OFF `
             -DPOLYHOOK_FEATURE_INLINENTD=OFF `
@@ -77,7 +71,7 @@ jobs:
             -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL
 
           if ($LASTEXITCODE -ne 0) {
-              throw "PolyHook2 CMake configure failed"
+              throw "PolyHook2 configure failed"
           }
 
           # Build
@@ -87,21 +81,26 @@ jobs:
               throw "PolyHook2 build failed"
           }
 
-          # Verify directories immediately before installation
-          Write-Host "=== Checking installation directories ==="
+          # Inspect generated libraries
+          Write-Host "=== Generated LIB files ==="
 
-          Get-Item "$deps/bin" | Format-List FullName, Attributes, PSIsContainer
-          Get-Item "$deps/lib" | Format-List FullName, Attributes, PSIsContainer
+          Get-ChildItem "$build" -Recurse -Filter "*.lib" |
+            Select-Object FullName, Length
 
           # Install
-          cmake --install "$build" --config Release --prefix "$deps"
+          cmake --install "$build" --config Release
 
           if ($LASTEXITCODE -ne 0) {
-              throw "PolyHook2 installation failed"
+              throw "PolyHook2 install failed"
           }
 
-          Write-Host "PolyHook2 installed successfully!"
-          Get-ChildItem "$deps/lib"
+          Write-Host "=== Installed PolyHook2 files ==="
+
+          Get-ChildItem "$deps" -Recurse -File |
+            Where-Object {
+              $_.Name -match "PolyHook"
+            } |
+            Select-Object FullName, Length
 
       - name: Debug PolyHook2 CMake Targets
         shell: pwsh
